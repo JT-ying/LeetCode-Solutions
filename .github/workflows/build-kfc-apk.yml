@@ -16,16 +16,22 @@ jobs:
       - name: Reconstruct Android project
         shell: bash
         run: |
-          cat kfc_build_parts/part_00 \
-              kfc_build_parts/part_01 \
-              kfc_build_parts/part_02_03 \
-              kfc_build_parts/part_04_05 \
-              kfc_build_parts/part_06 > /tmp/kfc.b64
+          cat kfc_build_v11_parts/part_00 \
+              kfc_build_v11_parts/part_01 \
+              kfc_build_v11_parts/part_02 \
+              kfc_build_v11_parts/part_03 \
+              kfc_build_v11_parts/part_04 \
+              kfc_build_v11_parts/part_05 > /tmp/kfc.b64
           base64 -d /tmp/kfc.b64 > /tmp/kfc.tgz
           mkdir -p kfc_android_src
           tar -xzf /tmp/kfc.tgz -C kfc_android_src
           test -s kfc_android_src/app/src/main/assets/index.html
           test -s kfc_android_src/app/src/main/java/com/jtying/kfcoptimizer/MainActivity.java
+          grep -q "versionName '1.1.0'" kfc_android_src/app/build.gradle
+          grep -q "DATA_SCHEMA_VERSION='2'" kfc_android_src/app/src/main/assets/index.html
+          grep -q "code:'16413'.*price:38" kfc_android_src/app/src/main/assets/index.html
+          grep -q "天天肯定省 A+B=\$69" kfc_android_src/app/src/main/assets/index.html
+          grep -q "單筆訂單的優惠不可併用限制" kfc_android_src/app/src/main/assets/index.html
 
       - name: Setup Java 17
         uses: actions/setup-java@v4
@@ -55,12 +61,15 @@ jobs:
           test -s kfc_android_src/app/build/outputs/apk/debug/app-debug.apk
           unzip -t kfc_android_src/app/build/outputs/apk/debug/app-debug.apk
           unzip -l kfc_android_src/app/build/outputs/apk/debug/app-debug.apk | grep -q 'assets/index.html'
+          unzip -p kfc_android_src/app/build/outputs/apk/debug/app-debug.apk assets/index.html | grep -q "DATA_SCHEMA_VERSION='2'"
+          unzip -p kfc_android_src/app/build/outputs/apk/debug/app-debug.apk assets/index.html | grep -q "code:'16413'.*price:38"
+          unzip -p kfc_android_src/app/build/outputs/apk/debug/app-debug.apk assets/index.html | grep -q "天天肯定省 A+B=\$69"
           sha256sum kfc_android_src/app/build/outputs/apk/debug/app-debug.apk | tee kfc_android_src/app/build/outputs/apk/debug/SHA256.txt
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: KFC-Best-Deal-APK
+          name: KFC-Best-Deal-v1.1-APK
           path: |
             kfc_android_src/app/build/outputs/apk/debug/app-debug.apk
             kfc_android_src/app/build/outputs/apk/debug/SHA256.txt
