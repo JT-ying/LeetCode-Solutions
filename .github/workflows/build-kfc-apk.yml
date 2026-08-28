@@ -1,0 +1,67 @@
+name: Build KFC APK
+
+on:
+  push:
+    branches:
+      - kfc-apk-build-20260828
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Reconstruct Android project
+        shell: bash
+        run: |
+          cat kfc_build_parts/part_00 \
+              kfc_build_parts/part_01 \
+              kfc_build_parts/part_02_03 \
+              kfc_build_parts/part_04_05 \
+              kfc_build_parts/part_06 > /tmp/kfc.b64
+          base64 -d /tmp/kfc.b64 > /tmp/kfc.tgz
+          mkdir -p kfc_android_src
+          tar -xzf /tmp/kfc.tgz -C kfc_android_src
+          test -s kfc_android_src/app/src/main/assets/index.html
+          test -s kfc_android_src/app/src/main/java/com/jtying/kfcoptimizer/MainActivity.java
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android platform
+        shell: bash
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Build debug APK
+        working-directory: kfc_android_src
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: Verify APK
+        shell: bash
+        run: |
+          test -s kfc_android_src/app/build/outputs/apk/debug/app-debug.apk
+          unzip -t kfc_android_src/app/build/outputs/apk/debug/app-debug.apk
+          unzip -l kfc_android_src/app/build/outputs/apk/debug/app-debug.apk | grep -q 'assets/index.html'
+          sha256sum kfc_android_src/app/build/outputs/apk/debug/app-debug.apk | tee kfc_android_src/app/build/outputs/apk/debug/SHA256.txt
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: KFC-Best-Deal-APK
+          path: |
+            kfc_android_src/app/build/outputs/apk/debug/app-debug.apk
+            kfc_android_src/app/build/outputs/apk/debug/SHA256.txt
+          if-no-files-found: error
